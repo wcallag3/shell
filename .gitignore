@@ -1,0 +1,8 @@
+.vagrant
+Vagrantfile
+*.o
+.DS_Store
+.project
+.cproject
+*.d
+*.mk
