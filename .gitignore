@@ -6,3 +6,4 @@ Vagrantfile
 .cproject
 *.d
 *.mk
+/Debug
