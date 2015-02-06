@@ -10,11 +10,19 @@ int main(int argc, char** argv)
 {
     const char* user;
     char input_line[MAX];
+    char history_input[MAX];
     char* tokens[CMD_MAX];
-    int i, n;
+    char* history[HIST_MAX];
+    int i, n, numCommands;
+    int fd[2];
+    pid_t pid;
+    int status;
 
     //Get the username
     user = getUserName();
+
+    //Initialize variables
+    numCommands = 0;
 
     while(1)
     {
@@ -24,8 +32,14 @@ int main(int argc, char** argv)
         //Read the characters from the stream
         if (fgets(input_line,MAX,stdin) != NULL)
         {
-            //Parse the input
-            n= make_tokenlist(input_line, tokens);
+            //Make a copy of the input line before parsing
+            //so that it can be added to history later.
+            strcpy(history_input,input_line);
+
+            //First tokenize by pipe to determine number of pipes needed.
+            //(Later we will tokenize by space).
+            n= make_tokenlist(input_line, tokens, "|");
+
             //If the first token is null then nothing was entered.
             //Go back to beginning of while loop.
             if(tokens[0] == NULL)
@@ -35,11 +49,21 @@ int main(int argc, char** argv)
             //If the user entered 'exit' then exit the shell.
             if(strcmp(tokens[0],"exit") == 0)
             {
+                numCommands = addToHistory(history,history_input, numCommands);
                 printf("NOTICE: Exiting shell.\n");
                 return 0;
             }
             for (i = 0; i < n; i++)
+            {
                 printf("extracted token is %s\n", tokens[i]);
+                if(strcmp(tokens[i],"|") == 0)
+                {
+
+                }
+
+            }
+
+
         }
         //If there was an error reading the characters from stream
         //display an error message and exit the shell.
