@@ -332,21 +332,31 @@ void handle_io(char* input_line, char* tokens[], int numTokens)
     {
         if(numTokens == 3)
         {
+            //Prepare i/o tokens (make sure they
+            //are correctly formated)
             prepare_io(tokens[1], input);
             prepare_io(tokens[2], output);
+            //Redirect i/o
             redir_both(input[0],output[0], fd);
+            //Execute
             exec_pipes(tokens[0]);
+        }
+        else
+        {
+            //Prepare a single i/o redirection
+            //and execute.
+            prepare_one_io(input_line, fd);
         }
     }
     else
     {
+        //Wait for child process to finish.
         wait(0);
     }
 }
 
 void redir_in(char* inputFile, int* fd)
 {
-    printf("\"%s\"\n", inputFile);
     fd[0] = open(inputFile,O_RDONLY, 0);
     dup2(fd[0], STDIN_FILENO);
     close(fd[0]);
@@ -354,7 +364,6 @@ void redir_in(char* inputFile, int* fd)
 
 void redir_out(char* output, int* fd)
 {
-    printf("\"%s\"\n", output);
     fd[1] = creat(output, 0644);
     dup2(fd[1], STDOUT_FILENO);
     close(fd[1]);
@@ -375,5 +384,64 @@ void prepare_io(char* command, char** output)
     {
         perror("Cannot tokenize");
         exit(EXIT_FAILURE);
+    }
+}
+
+void prepare_one_io(char* command, int fd[])
+{
+    int n;
+    int status = -1;
+    char* tokens[CMD_MAX];
+    char copy[CMD_MAX];
+    char* io[CMD_MAX];
+
+    //Make a copy of the command
+    //It will be needed if the first condition fails.
+    strcpy(copy,command);
+
+    //Check to see if there is a '<'
+    n = make_tokenlist(command,tokens, "<");
+    if(n < 1)
+    {
+        perror("Cannot tokenize");
+        exit(EXIT_FAILURE);
+    }
+    //If there is more than one token, then a '<'
+    //is present. Parse the token.
+    if(n>1)
+    {
+        status = 0;
+        prepare_io(tokens[1], io);
+    }
+    //In this case, there must be a '>' present
+    else
+    {
+        //Check to make sure this is true
+        n = make_tokenlist(copy,tokens, ">");
+        if(n < 1)
+        {
+            perror("Cannot tokenize");
+            exit(EXIT_FAILURE);
+        }
+        if(n>1)
+        {
+            status = 1;
+            prepare_io(tokens[1], io);
+        }
+    }
+    //If there is a '<'
+    //Redirect the input and execute command
+    if (status == 0)
+    {
+        redir_in(io[0],fd);
+        exec_pipes(tokens[0]);
+
+    }
+    //If there is a '>'
+    //Redirect the output and execute command
+    else if (status == 1)
+    {
+        redir_out(io[0],fd);
+        exec_pipes(tokens[0]);
     }
 }

@@ -39,5 +39,6 @@ void redir_in(char* inputFile, int* fd);
 void redir_out(char* output, int* fd);
 void redir_both(char* input, char* output, int* fd);
 void prepare_io(char* command, char** output);
+void prepare_one_io(char* command, int fd[]);
 
 #endif /* FUNCTIONS_H_ */
