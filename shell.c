@@ -41,25 +41,53 @@ int main(int argc, char** argv)
             //(ie. there is a pipe)
             if (n > 1)
             {
+                //Handle the pipes.
                 handle_pipes(tokens, n);
+                numCommands = addToHistory(history,history_input, numCommands);
             }
             else
             {
-                n = make_tokenlist(input_line, tokens, " \t\n");
-                if(tokens[0]==NULL)
-                {
-                    continue;
-                }
-                //If the user entered 'exit' then exit the shell.
-                if(strcmp(tokens[0],"exit") == 0)
-                {
-                    numCommands = addToHistory(history,history_input, numCommands);
-                    printf("NOTICE: Exiting shell.\n");
-                    return 0;
-                }
-
-
+                //Check to see if there is i/o redirection ('<' and/or '>')
+                //If so, deal with it appropriately.
+                n = make_tokenlist(input_line, tokens, "<>");
+                if(n > 1)
+                    handle_io(history_input, tokens, n);
             }
+            //If we reached this point, there are no pipes or i/o
+            //redirection. Split up the input line by the delimiters specified.
+            n = make_tokenlist(input_line, tokens, " \t\n");
+
+            //If the first token is null, nothing was entered.
+            //Go to beginning of loop.
+            if(tokens[0]==NULL)
+            {
+                continue;
+            }
+            //If the user entered 'exit' then exit the shell.
+            if(strcmp(tokens[0],"exit") == 0)
+            {
+                numCommands = addToHistory(history,history_input, numCommands);
+                printf("NOTICE: Exiting shell.\n");
+                return 0;
+            }
+            //If the user entered 'history' then list the history
+            if(strcmp(tokens[0], "history") == 0)
+            {
+                //If the user specifies a numerical argument
+                //take this into account.
+                if(n >= 2 && atoi(tokens[1]) != 0)
+                    printHistory(history, numCommands, atoi(tokens[1]));
+                //Otherwise, print the last 10 commands.
+                else
+                    printHistory(history,numCommands,NO_HIST);
+
+                numCommands = addToHistory(history,history_input, numCommands);
+                continue;
+            }
+            //If we have reached this point, there are no pipes, i/o redirection
+            //or built-in functions (just a regular command). Execute this command.
+            exec_command(tokens,n);
+            numCommands = addToHistory(history,history_input, numCommands);
         }
         //If there was an error reading the characters from stream
         //display an error message and exit the shell.

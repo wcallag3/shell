@@ -58,7 +58,7 @@ void printHistory(char* history[], int count, int desiredHistory)
 {
     int toPrint;
     int index;
-    if(desiredHistory == -1)
+    if(desiredHistory == NO_HIST)
     {
         if (count < 10) toPrint = count;
         else toPrint = 10;
@@ -70,11 +70,12 @@ void printHistory(char* history[], int count, int desiredHistory)
     else
         toPrint = desiredHistory;
 
-    for(index=0;index < toPrint; index++)
+    for(index=count-toPrint;index < count; index++)
     {
-        printf("%s\n", history[index]);
+        printf("%s", history[index]);
     }
 }
+
 
 void handle_pipes(char *tokens[], int numTokens)
 {
@@ -134,17 +135,22 @@ void handle_pipes(char *tokens[], int numTokens)
 
             close(fd[fd_prev]);
             close(fd[fd_forw]);
-            exec_command(tokens[i]);
+            printf("TOKENS AT i: %s\n", tokens[i]);
+            exec_pipes(tokens[i]);
+        }
+        else
+        {
+            wait(0);
         }
     }
 
-    for(i=0; i < 2*numPipes; i++)
+    for(i=0; i < (2*numPipes); i++)
     {
         close(fd[i]);
     }
 }
 
-void exec_command(char* command)
+void exec_pipes(char* command)
 {
     int n;
     int status;
@@ -169,3 +175,116 @@ void exec_command(char* command)
         exit(EXIT_FAILURE);
     }
 }
+
+void exec_command(char* tokens[], int numTokens)
+{
+    int status;
+    pid_t pid;
+    char* arguments[numTokens+1];
+
+    pid = fork();
+    if (pid < 0)
+    {
+        perror("Fork error");
+        exit(EXIT_FAILURE);
+    }
+    if (pid == 0)
+    {
+        prepare_arguments(tokens,arguments,numTokens);
+        status = execvp(tokens[0], arguments);
+        if(status<0)
+        {
+            perror("Execution Error");
+            exit(EXIT_FAILURE);
+        }
+
+    }
+    else
+    {
+        wait(0);
+    }
+}
+
+void handle_io(char* input_line, char* tokens, int numTokens)
+{
+    #define LEFT 0
+    #define BOTH 1
+    #define RIGHT 2
+    int n;
+    int status;
+    int fd[2];
+    pid_t pid;
+    char middle;
+    char left;
+    char right;
+    char* arguments[numTokens+1];
+
+
+    if(numTokens == 3)
+    {
+        left = tokens[0];
+        middle = tokens[1];
+        right = tokens[2];
+        status = BOTH;
+    }
+    else
+    {
+        n = make_tokenlist(input_line, tokens, "<");
+        if(n>1)
+        {
+            left = tokens[0];
+            middle = tokens[1];
+            status = LEFT;
+        }
+        else
+        {
+            n = make_tokenlist(input_line, tokens, ">");
+            middle = tokens[0];
+            right = tokens[1];
+            status = RIGHT;
+        }
+    }
+
+    pid = fork();
+    if (pid < 0)
+    {
+        perror("Fork error");
+        exit(EXIT_FAILURE);
+    }
+    if (pid == 0)
+    {
+        if(status==LEFT || status==BOTH)
+        {
+            fd[0] = open(middle,O_RDONLY, 0);
+            dup2(fd[0], STDIN_FILENO);
+            close(fd[0]);
+        }
+        if(status==RIGHT || status==BOTH)
+        {
+            fd[1] = creat(right, 0644);
+            dup2(fd[1], STDOUT_FILENO);
+            close(fd[1]);
+        }
+        if(status==LEFT || status==BOTH)
+        {
+
+        }
+        if(status==RIGHT)
+        {
+
+        }
+    }
+
+}
+
+void prepare_arguments(char** input, char** output, int numTokens)
+{
+    int i;
+    for(i=0;i<numTokens;i++)
+    {
+        output[i] = input[i];
+    }
+    output[numTokens] = NULL;
+}
+
+
