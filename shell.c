@@ -51,7 +51,11 @@ int main(int argc, char** argv)
                 //If so, deal with it appropriately.
                 n = make_tokenlist(input_line, tokens, "<>");
                 if(n > 1)
+                {
                     handle_io(history_input, tokens, n);
+                    numCommands = addToHistory(history,history_input, numCommands);
+                    continue;
+                }
             }
             //If we reached this point, there are no pipes or i/o
             //redirection. Split up the input line by the delimiters specified.

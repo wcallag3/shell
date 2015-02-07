@@ -76,7 +76,115 @@ void printHistory(char* history[], int count, int desiredHistory)
     }
 }
 
+/*
+void spawn_process(int in, int out, char* command)
+{
+    pid_t pid;
+    if((pid = fork()) == 0)
+    {
+        if (in != 0)
+        {
+            dup2(in,0);
+            close(in);
+        }
+        if (out != 1)
+        {
+            dup2(out,1);
+            close(out);
+        }
+        exec_pipes(command);
+    }
+}
 
+void handle_pipes(char *tokens[], int numTokens)
+{
+    int fd[2];
+    pid_t pid;
+    int i, in;
+
+    in = 0;
+
+    for(i=0; i < numTokens - 1; i++)
+    {
+        printf("TOKEN AT i: %s\n", tokens[i]);
+        pipe(fd);
+        printf("TOKEN AT i: %s\n", tokens[i]);
+        spawn_process(in, fd[1], tokens[i]);
+        close(fd[1]);
+        in = fd[0];
+    }
+    if (in != 0)
+    {
+        dup2(in,0);
+    }
+    exec_pipes(tokens[i]);
+
+}*/
+
+void handle_pipes(char *tokens[], int numTokens)
+{
+    int numPipes = numTokens - 1;
+    int i;
+    int fd[2];
+    int fd2[2];
+    pid_t pid;
+
+    for(i=0;i<numTokens;i++)
+    {
+        //If there is a next command, then pipe
+        if(i!= numTokens-1)
+            pipe(fd2);
+
+        //Fork a process
+        pid = fork();
+        if (pid < 0)
+        {
+            perror("Fork error");
+            exit(EXIT_FAILURE);
+        }
+        //If child
+        if (pid == 0)
+        {
+            //If there is a previous command
+            if(i!=0)
+            {
+                if(dup2(fd[0], 0) < 0)
+                {
+                    perror("Cannot dup");
+                    exit(EXIT_FAILURE);
+                }
+                close(fd[0]);
+                close(fd[1]);
+            }
+            //If there is a next command
+            if(i!= numTokens-1)
+            {
+                close(fd2[0]);
+                if(dup2(fd2[1], 1) < 0)
+                {
+                    perror("Cannot dup");
+                    exit(EXIT_FAILURE);
+                }
+                close(fd2[1]);
+            }
+            exec_pipes(tokens[i]);
+        }
+        else
+        {
+            if(i!=0)
+            {
+                close(fd[0]);
+                close(fd[1]);
+            }
+            if(i!= numTokens - 1)
+            {
+                fd[0] = fd2[0];
+                fd[1] = fd2[1];
+            }
+        }
+    }
+}
+/*
 void handle_pipes(char *tokens[], int numTokens)
 {
     int numPipes = numTokens - 1;
@@ -148,40 +256,25 @@ void handle_pipes(char *tokens[], int numTokens)
     {
         close(fd[i]);
     }
-}
+}*/
 
 void exec_pipes(char* command)
 {
     int n;
-    int status;
     char* tokens[CMD_MAX];
-    printf("COMMAND IS: %s\n", command);
+
     n = make_tokenlist(command,tokens, " ");
     if(n < 1)
+    {
         perror("Cannot tokenize");
-    if (n == 1)
-    {
-        printf("TOKEN IS: %s\n", tokens[0]);
-        status = execlp(tokens[0],tokens[0], NULL);
-    }
-    else
-    {
-        printf("TOKEN IS: %s ARGS IS: %s\n", tokens[0], tokens[1]);
-        status = execlp(tokens[0], tokens[0], tokens[1], NULL);
-    }
-    if(status < 0)
-    {
-        perror("Execution error");
         exit(EXIT_FAILURE);
     }
+    execute(tokens, n);
 }
 
 void exec_command(char* tokens[], int numTokens)
 {
-    int status;
     pid_t pid;
-    char* arguments[numTokens+1];
-
     pid = fork();
     if (pid < 0)
     {
@@ -190,91 +283,12 @@ void exec_command(char* tokens[], int numTokens)
     }
     if (pid == 0)
     {
-        prepare_arguments(tokens,arguments,numTokens);
-        status = execvp(tokens[0], arguments);
-        if(status<0)
-        {
-            perror("Execution Error");
-            exit(EXIT_FAILURE);
-        }
-
+        execute(tokens,numTokens);
     }
     else
     {
         wait(0);
     }
-}
-
-void handle_io(char* input_line, char* tokens, int numTokens)
-{
-    #define LEFT 0
-    #define BOTH 1
-    #define RIGHT 2
-    int n;
-    int status;
-    int fd[2];
-    pid_t pid;
-    char middle;
-    char left;
-    char right;
-    char* arguments[numTokens+1];
-
-
-    if(numTokens == 3)
-    {
-        left = tokens[0];
-        middle = tokens[1];
-        right = tokens[2];
-        status = BOTH;
-    }
-    else
-    {
-        n = make_tokenlist(input_line, tokens, "<");
-        if(n>1)
-        {
-            left = tokens[0];
-            middle = tokens[1];
-            status = LEFT;
-        }
-        else
-        {
-            n = make_tokenlist(input_line, tokens, ">");
-            middle = tokens[0];
-            right = tokens[1];
-            status = RIGHT;
-        }
-    }
-
-    pid = fork();
-    if (pid < 0)
-    {
-        perror("Fork error");
-        exit(EXIT_FAILURE);
-    }
-    if (pid == 0)
-    {
-        if(status==LEFT || status==BOTH)
-        {
-            fd[0] = open(middle,O_RDONLY, 0);
-            dup2(fd[0], STDIN_FILENO);
-            close(fd[0]);
-        }
-        if(status==RIGHT || status==BOTH)
-        {
-            fd[1] = creat(right, 0644);
-            dup2(fd[1], STDOUT_FILENO);
-            close(fd[1]);
-        }
-        if(status==LEFT || status==BOTH)
-        {
-
-        }
-        if(status==RIGHT)
-        {
-
-        }
-    }
-
 }
 
 void prepare_arguments(char** input, char** output, int numTokens)
@@ -287,4 +301,79 @@ void prepare_arguments(char** input, char** output, int numTokens)
     output[numTokens] = NULL;
 }
 
+void execute(char* tokens[], int numTokens)
+{
+    int status;
+    char* arguments[numTokens+1];
 
+    prepare_arguments(tokens,arguments,numTokens);
+    status = execvp(tokens[0], arguments);
+
+    if(status<0)
+    {
+        perror("Execution Error");
+        exit(EXIT_FAILURE);
+    }
+}
+
+void handle_io(char* input_line, char* tokens[], int numTokens)
+{
+    char* input[CMD_MAX];
+    char* output[CMD_MAX];
+    int fd[2];
+    pid_t pid;
+    pid = fork();
+    if (pid < 0)
+    {
+        perror("Fork error");
+        exit(EXIT_FAILURE);
+    }
+    if (pid == 0)
+    {
+        if(numTokens == 3)
+        {
+            prepare_io(tokens[1], input);
+            prepare_io(tokens[2], output);
+            redir_both(input[0],output[0], fd);
+            exec_pipes(tokens[0]);
+        }
+    }
+    else
+    {
+        wait(0);
+    }
+}
+
+void redir_in(char* inputFile, int* fd)
+{
+    printf("\"%s\"\n", inputFile);
+    fd[0] = open(inputFile,O_RDONLY, 0);
+    dup2(fd[0], STDIN_FILENO);
+    close(fd[0]);
+}
+
+void redir_out(char* output, int* fd)
+{
+    printf("\"%s\"\n", output);
+    fd[1] = creat(output, 0644);
+    dup2(fd[1], STDOUT_FILENO);
+    close(fd[1]);
+}
+
+void redir_both(char* input, char* output, int* fd)
+{
+    redir_in(input, fd);
+    redir_out(output, fd);
+}
+
+void prepare_io(char* command, char** output)
+{
+    int n;
+
+    n = make_tokenlist(command,output, " \t\n");
+    if(n < 1)
+    {
+        perror("Cannot tokenize");
+        exit(EXIT_FAILURE);
+    }
+}
