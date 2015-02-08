@@ -112,8 +112,8 @@ void handle_pipes(char *tokens[], int numTokens)
     int status;
 
     int pipefds[2*numPipes];
-    printf("%lu\n", sizeof(pipefds));
-    printf("%d\n", numPipes);
+    //printf("%lu\n", sizeof(pipefds));
+    //printf("%d\n", numPipes);
 
     for(i=0;i < numPipes; i++)
     {
@@ -127,10 +127,7 @@ void handle_pipes(char *tokens[], int numTokens)
     int j=0;
     for(i=0; i<numTokens;i++)
     {
-        printf("first check: i is: %d\n", i);
-        printf("Tokens at %d: %s\n", i, tokens[i]);
         pid = fork();
-        printf("FORK: Tokens at %d: %s - PID: %d\n", i, tokens[i], pid);
         if (pid < 0)
         {
             perror("Fork error");
@@ -161,9 +158,7 @@ void handle_pipes(char *tokens[], int numTokens)
             {
                 close(pipefds[k]);
             }
-            printf("i is currently: %d\n", i);
-            //Exec
-            printf("Tokens at %d before passing: %s\n", i,tokens[i]);
+            //Execute command
             exec_pipes(tokens[i]);
         }
         j+=2;
@@ -183,9 +178,8 @@ void exec_pipes(char* command)
 {
     int n;
     char* tokens[CMD_MAX];
-    printf("CMD: %s\n", command);
 
-    n = make_tokenlist(command,tokens, " ");
+    n = make_tokenlist(command,tokens, " \t\n");
     if(n < 1)
     {
         perror("Cannot tokenize");
@@ -280,6 +274,11 @@ void handle_io(char* input_line, char* tokens[], int numTokens)
 void redir_in(char* inputFile, int* fd)
 {
     fd[0] = open(inputFile,O_RDONLY, 0);
+    if (fd[0] < 0)
+    {
+        perror("file error");
+        exit(EXIT_FAILURE);
+    }
     dup2(fd[0], STDIN_FILENO);
     close(fd[0]);
 }
@@ -287,6 +286,11 @@ void redir_in(char* inputFile, int* fd)
 void redir_out(char* output, int* fd)
 {
     fd[1] = creat(output, 0644);
+    if (fd[0] < 0)
+    {
+        perror("file error");
+        exit(EXIT_FAILURE);
+    }
     dup2(fd[1], STDOUT_FILENO);
     close(fd[1]);
 }
