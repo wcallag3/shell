@@ -103,6 +103,9 @@ void printHistory(char* history[], int count, int desiredHistory)
     }
 }
 
+/*
+ * Handles pipe execution
+ */
 void handle_pipes(char *tokens[], int numTokens)
 {
     int i = 0;
@@ -110,11 +113,10 @@ void handle_pipes(char *tokens[], int numTokens)
     int numPipes = numTokens - 1;
     pid_t pid;
     int status;
+    int pipefds[2*numPipes];    //Stores file descriptors for pipes
 
-    int pipefds[2*numPipes];
-    //printf("%lu\n", sizeof(pipefds));
-    //printf("%d\n", numPipes);
 
+    //Loop through and create each pipe.
     for(i=0;i < numPipes; i++)
     {
         if(pipe(pipefds + i*2) < 0)
@@ -124,15 +126,19 @@ void handle_pipes(char *tokens[], int numTokens)
         }
     }
 
-    int j=0;
+    int j=0; //Used to access appropriate file descriptors in pipefds.
+
+    //Loop through number of tokens (number of commands)
     for(i=0; i<numTokens;i++)
     {
+        //Fork a process.
         pid = fork();
         if (pid < 0)
         {
             perror("Fork error");
             exit(EXIT_FAILURE);
         }
+        //If process is the child
         else if (pid == 0)
         {
             //If not the last command
@@ -154,6 +160,7 @@ void handle_pipes(char *tokens[], int numTokens)
                     exit(EXIT_FAILURE);
                 }
             }
+            //Loop through and close the pipes.
             for(k=0; k < 2*numPipes; k++)
             {
                 close(pipefds[k]);
@@ -161,52 +168,71 @@ void handle_pipes(char *tokens[], int numTokens)
             //Execute command
             exec_pipes(tokens[i]);
         }
+        //Increment j by two in order to access file descriptor
+        //for next pipe.
         j+=2;
     }
 
+    //Close all pipes.
     for(i=0;i < 2*numPipes; i++)
     {
         close(pipefds[i]);
     }
+    //Wait for child to finish.
     for(i=0;i < numPipes + 1; i++)
     {
         wait(&status);
     }
 }
 
+/*
+ * Executes a command within a pipe
+ */
 void exec_pipes(char* command)
 {
     int n;
     char* tokens[CMD_MAX];
 
+    //Make a token list based on delimiters.
     n = make_tokenlist(command,tokens, " \t\n");
     if(n < 1)
     {
         perror("Cannot tokenize");
         exit(EXIT_FAILURE);
     }
+    //Execute the command.
     execute(tokens, n);
 }
 
+/*
+ * Executes a regular command
+ * (ie. one that is not piped or redirected)
+ */
 void exec_command(char* tokens[], int numTokens)
 {
     pid_t pid;
+    //Fork a process.
     pid = fork();
     if (pid < 0)
     {
         perror("Fork error");
         exit(EXIT_FAILURE);
     }
+    //If child, execute command.
     if (pid == 0)
     {
         execute(tokens,numTokens);
     }
+    //Wait for child to finish
     else
     {
         wait(0);
     }
 }
 
+/*
+ * Prepares arguments for execution by execvp
+ */
 void prepare_arguments(char** input, char** output, int numTokens)
 {
     int i;
@@ -214,15 +240,22 @@ void prepare_arguments(char** input, char** output, int numTokens)
     {
         output[i] = input[i];
     }
+    //The last argument in the array must be NULL for execvp
+    //to work properly.
     output[numTokens] = NULL;
 }
 
+/**
+ * Executes a command
+ */
 void execute(char* tokens[], int numTokens)
 {
     int status;
     char* arguments[numTokens+1];
 
+    //Prepare the arguments for execution via execvp
     prepare_arguments(tokens,arguments,numTokens);
+    //Execute via execvp
     status = execvp(tokens[0], arguments);
 
     if(status<0)
@@ -232,20 +265,27 @@ void execute(char* tokens[], int numTokens)
     }
 }
 
+/*
+ * Handles i/o redirection.
+ */
 void handle_io(char* input_line, char* tokens[], int numTokens)
 {
-    char* input[CMD_MAX];
-    char* output[CMD_MAX];
-    int fd[2];
-    pid_t pid;
+    char* input[CMD_MAX];   //Stores input tokens
+    char* output[CMD_MAX];  //Stores output tokens
+    int fd[2];              //Stores file descriptor
+    pid_t pid;              //Process ID
+
+    //Fork a process.
     pid = fork();
     if (pid < 0)
     {
         perror("Fork error");
         exit(EXIT_FAILURE);
     }
+    //If child
     if (pid == 0)
     {
+        //If there is both input and output redirection
         if(numTokens == 3)
         {
             //Prepare i/o tokens (make sure they
@@ -271,6 +311,9 @@ void handle_io(char* input_line, char* tokens[], int numTokens)
     }
 }
 
+/*
+ * Redirect inputfile to given input.
+ */
 void redir_in(char* inputFile, int* fd)
 {
     fd[0] = open(inputFile,O_RDONLY, 0);
@@ -283,6 +326,9 @@ void redir_in(char* inputFile, int* fd)
     close(fd[0]);
 }
 
+/*
+ * Redirect output to given output.
+ */
 void redir_out(char* output, int* fd)
 {
     fd[1] = creat(output, 0644);
@@ -295,12 +341,19 @@ void redir_out(char* output, int* fd)
     close(fd[1]);
 }
 
+/*
+ * Redirect both input and output.
+ */
 void redir_both(char* input, char* output, int* fd)
 {
     redir_in(input, fd);
     redir_out(output, fd);
 }
 
+/*
+ * Prepare i/o commands for execution
+ * (ie. tokenize them)
+ */
 void prepare_io(char* command, char** output)
 {
     int n;
@@ -313,12 +366,16 @@ void prepare_io(char* command, char** output)
     }
 }
 
+/*
+ * Prepares i/o redirection for a single
+ * i/o redirect.
+ */
 void prepare_one_io(char* command, int fd[])
 {
     int n;
     int status = -1;
     char* tokens[CMD_MAX];
-    char copy[CMD_MAX];
+    char copy[CMD_MAX];     //A copy of the command
     char* io[CMD_MAX];
 
     //Make a copy of the command

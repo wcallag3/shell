@@ -9,11 +9,11 @@
 
 int main(int argc, char** argv)
 {
-    const char* user;
-    char input_line[MAX];
-    char history_input[MAX];
-    char* tokens[CMD_MAX];
-    char* history[HIST_MAX];
+    const char* user;           //Username
+    char input_line[MAX];       //Stores user input
+    char history_input[MAX];    //Copy of user input
+    char* tokens[CMD_MAX];      //Stores tokenized input
+    char* history[HIST_MAX];    //Stores history of previous commands
     int n, numCommands;
 
     //Get the username
@@ -44,6 +44,7 @@ int main(int argc, char** argv)
             {
                 //Handle the pipes.
                 handle_pipes(tokens, n);
+                //Add command to history.
                 numCommands = addToHistory(history,history_input, numCommands);
                 continue;
             }
@@ -55,6 +56,7 @@ int main(int argc, char** argv)
                 if(n > 1)
                 {
                     handle_io(history_input, tokens, n);
+                    //Add command to history.
                     numCommands = addToHistory(history,history_input, numCommands);
                     continue;
                 }
@@ -72,6 +74,7 @@ int main(int argc, char** argv)
             //If the user entered 'exit' then exit the shell.
             if(strcmp(tokens[0],"exit") == 0)
             {
+                //Add command to history.
                 numCommands = addToHistory(history,history_input, numCommands);
                 printf("NOTICE: Exiting shell.\n");
                 return 0;
@@ -87,12 +90,15 @@ int main(int argc, char** argv)
                 else
                     printHistory(history,numCommands,NO_HIST);
 
+                //Add command to history.
                 numCommands = addToHistory(history,history_input, numCommands);
                 continue;
             }
             //If we have reached this point, there are no pipes, i/o redirection
             //or built-in functions (just a regular command). Execute this command.
             exec_command(tokens,n);
+
+            //Add command to history.
             numCommands = addToHistory(history,history_input, numCommands);
         }
         //If there was an error reading the characters from stream
