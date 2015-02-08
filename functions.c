@@ -1,11 +1,15 @@
 /*
  * functions.c
- *
- *  Created on: Feb 2, 2015
- *      Author: williamcallaghan
+ * Author: William Callaghan
+ * Student #: 250564293
+ * GAUL ID: wcallag3
+ * CS 3305B
  */
 #include "functions.h"
 
+/*
+ * Tokenizer provided by Hanan
+ */
 int make_tokenlist(char *buf, char *tokens[], char* delims)
 {
     char *line;
@@ -24,6 +28,10 @@ int make_tokenlist(char *buf, char *tokens[], char* delims)
     return i;
 }
 
+/*
+ * Gets the username from the environment
+ * variable user.
+ */
 const char* getUserName()
 {
     char* user = getenv("USER");
@@ -33,16 +41,24 @@ const char* getUserName()
     return "";
 }
 
+/**
+ * Adds the current command to history
+ */
 int addToHistory(char* history[], char* command, int count)
 {
     int index;
+    //If the current count of commands is less than the
+    //max that history can handle
     if(count < HIST_MAX)
     {
+        //Add the command to the history.
         history[count] = strdup(command);
         count++;
     }
     else
     {
+        //Otherwise, we need to bump out one command
+        //move the rest and insert the new command.
         free(history[0]);
         for(index=1; index < HIST_MAX; index++)
         {
@@ -51,217 +67,123 @@ int addToHistory(char* history[], char* command, int count)
         history[HIST_MAX-1] = strdup(command);
     }
 
+    //Return the new count.
     return count;
 }
 
+/*
+ * Prints the command line history to the screen.
+ */
 void printHistory(char* history[], int count, int desiredHistory)
 {
     int toPrint;
     int index;
+
+    //If the user did not provide a numerical argument
+    //Set toPrint to either 10 or less commands.
     if(desiredHistory == NO_HIST)
     {
         if (count < 10) toPrint = count;
         else toPrint = 10;
     }
+    //Set toPrint to desired history or the
+    //max number of commands possible.
     else if (count%HIST_MAX < desiredHistory)
     {
         toPrint = count%HIST_MAX;
     }
+    //Set the desired history amount.
     else
         toPrint = desiredHistory;
 
+    //Print the commands.
     for(index=count-toPrint;index < count; index++)
     {
         printf("%s", history[index]);
     }
 }
 
-/*
-void spawn_process(int in, int out, char* command)
-{
-    pid_t pid;
-    if((pid = fork()) == 0)
-    {
-        if (in != 0)
-        {
-            dup2(in,0);
-            close(in);
-        }
-        if (out != 1)
-        {
-            dup2(out,1);
-            close(out);
-        }
-        exec_pipes(command);
-    }
-}
-
 void handle_pipes(char *tokens[], int numTokens)
 {
-    int fd[2];
-    pid_t pid;
-    int i, in;
-
-    in = 0;
-
-    for(i=0; i < numTokens - 1; i++)
-    {
-        printf("TOKEN AT i: %s\n", tokens[i]);
-        pipe(fd);
-        printf("TOKEN AT i: %s\n", tokens[i]);
-        spawn_process(in, fd[1], tokens[i]);
-        close(fd[1]);
-        in = fd[0];
-    }
-    if (in != 0)
-    {
-        dup2(in,0);
-    }
-    exec_pipes(tokens[i]);
-
-}*/
-
-void handle_pipes(char *tokens[], int numTokens)
-{
+    int i = 0;
+    int k = 0;
     int numPipes = numTokens - 1;
-    int i;
-    int fd[2];
-    int fd2[2];
     pid_t pid;
+    int status;
 
-    for(i=0;i<numTokens;i++)
+    int pipefds[2*numPipes];
+    printf("%lu\n", sizeof(pipefds));
+    printf("%d\n", numPipes);
+
+    for(i=0;i < numPipes; i++)
     {
-        //If there is a next command, then pipe
-        if(i!= numTokens-1)
-            pipe(fd2);
-
-        //Fork a process
-        pid = fork();
-        if (pid < 0)
-        {
-            perror("Fork error");
-            exit(EXIT_FAILURE);
-        }
-        //If child
-        if (pid == 0)
-        {
-            //If there is a previous command
-            if(i!=0)
-            {
-                if(dup2(fd[0], 0) < 0)
-                {
-                    perror("Cannot dup");
-                    exit(EXIT_FAILURE);
-                }
-                close(fd[0]);
-                close(fd[1]);
-            }
-            //If there is a next command
-            if(i!= numTokens-1)
-            {
-                close(fd2[0]);
-                if(dup2(fd2[1], 1) < 0)
-                {
-                    perror("Cannot dup");
-                    exit(EXIT_FAILURE);
-                }
-                close(fd2[1]);
-            }
-            exec_pipes(tokens[i]);
-        }
-        else
-        {
-            if(i!=0)
-            {
-                close(fd[0]);
-                close(fd[1]);
-            }
-            if(i!= numTokens - 1)
-            {
-                fd[0] = fd2[0];
-                fd[1] = fd2[1];
-            }
-        }
-    }
-}
-/*
-void handle_pipes(char *tokens[], int numTokens)
-{
-    int numPipes = numTokens - 1;
-    int fd[numPipes*2];
-    int i;
-    int fd_prev;
-    int fd_forw;
-    pid_t pid;
-
-    for(i=0; i< (numPipes*2); i++)
-    {
-        if(pipe(fd + i*2) < 0)
+        if(pipe(pipefds + i*2) < 0)
         {
             perror("Fatal error");
             exit(EXIT_FAILURE);
         }
     }
+
+    int j=0;
     for(i=0; i<numTokens;i++)
     {
+        printf("first check: i is: %d\n", i);
+        printf("Tokens at %d: %s\n", i, tokens[i]);
         pid = fork();
+        printf("FORK: Tokens at %d: %s - PID: %d\n", i, tokens[i], pid);
         if (pid < 0)
         {
             perror("Fork error");
             exit(EXIT_FAILURE);
         }
-        if (pid == 0)
+        else if (pid == 0)
         {
-            //Position of the previous fd.
-            fd_prev = (i-1)*2;
-            //Position of the next fd.
-            fd_forw = i*2+1;
-
-            //If the command is not the first command
-            //then the child gets the input from the
-            //previous command.
-            if(i!=0)
+            //If not the last command
+            if (i < numTokens-1)
             {
-                if(dup2(fd[fd_prev], 0) < 0)
+                if(dup2(pipefds[j+1], 1) < 0)
                 {
-                    perror("Cannot dup");
+                    perror("dup error");
                     exit(EXIT_FAILURE);
                 }
             }
 
-            //If the command is not the last command
-            //then the child will send its output
-            //to the next command.
-            if(i!=(numTokens-1))
+            //If not the first command
+            if (j!=0)
             {
-                if(dup2(fd[fd_forw], 1) < 0)
+                if(dup2(pipefds[j-2], 0) < 0)
                 {
-                    perror("Cannot dup");
+                    perror("dup error");
                     exit(EXIT_FAILURE);
                 }
             }
-
-            close(fd[fd_prev]);
-            close(fd[fd_forw]);
-            printf("TOKENS AT i: %s\n", tokens[i]);
+            for(k=0; k < 2*numPipes; k++)
+            {
+                close(pipefds[k]);
+            }
+            printf("i is currently: %d\n", i);
+            //Exec
+            printf("Tokens at %d before passing: %s\n", i,tokens[i]);
             exec_pipes(tokens[i]);
         }
-        else
-        {
-            wait(0);
-        }
+        j+=2;
     }
 
-    for(i=0; i < (2*numPipes); i++)
+    for(i=0;i < 2*numPipes; i++)
     {
-        close(fd[i]);
+        close(pipefds[i]);
     }
-}*/
+    for(i=0;i < numPipes + 1; i++)
+    {
+        wait(&status);
+    }
+}
 
 void exec_pipes(char* command)
 {
     int n;
     char* tokens[CMD_MAX];
+    printf("CMD: %s\n", command);
 
     n = make_tokenlist(command,tokens, " ");
     if(n < 1)

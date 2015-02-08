@@ -1,8 +1,9 @@
 /*
- * shell.c
- *
- *  Created on: Feb 2, 2015
- *      Author: williamcallaghan
+ * Shell.c
+ * Author: William Callaghan
+ * Student #: 250564293
+ * GAUL ID: wcallag3
+ * CS 3305B
  */
 #include "functions.h"
 
@@ -44,6 +45,7 @@ int main(int argc, char** argv)
                 //Handle the pipes.
                 handle_pipes(tokens, n);
                 numCommands = addToHistory(history,history_input, numCommands);
+                continue;
             }
             else
             {

@@ -1,8 +1,9 @@
 /*
  * functions.h
- *
- *  Created on: Feb 2, 2015
- *      Author: williamcallaghan
+ * Author: William Callaghan
+ * Student #: 250564293
+ * GAUL ID: wcallag3
+ * CS 3305B
  */
 
 #ifndef FUNCTIONS_H_
@@ -34,7 +35,6 @@ void exec_pipes(char *command);
 void handle_io(char* input_line, char* tokens[], int numTokens);
 void prepare_arguments(char** input, char** output, int numTokens);
 void execute(char* tokens[], int numTokens);
-void spawn_process(int in, int out, char* command);
 void redir_in(char* inputFile, int* fd);
 void redir_out(char* output, int* fd);
 void redir_both(char* input, char* output, int* fd);
